@@ -12,7 +12,7 @@ var url = require('url');
 var juice = require('juice');
 const sgMail = require('@sendgrid/mail');
 
-var Linkedin = require('node-linkedin')('818fja7bhtzeac', 'LN713Gcs61J623hZ', 'http://localhost:3000/linkedin');
+var Linkedin = require('node-linkedin')('818fja7bhtzeac', 'LN713Gcs61J623hZ', 'https://hrscreeningbot.azurewebsites.net/linkedin');
 
 var express = require('express');
 var router = express.Router();
