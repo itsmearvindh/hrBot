@@ -43,22 +43,39 @@ router.get('/linkedin', function(req, res) {
       return console.error(err);
       var linkedin = Linkedin.init(results.access_token || results.accessToken);
       var summary = "";
-      linkedin.people.url("https://www.linkedin.com/in/mchawda",['summary', 'positions'],function(err, profileDetails) {
-        console.log("Summary of the LinkedIn Profile is ",profileDetails.summary)
-        console.log("Specialties of the LinkedIn Profile is ",profileDetails.specialties)
-        console.log("Positions of the LinkedIn Profile is ",profileDetails.positions)
-        summary = profileDetails.summary;
-
-        let promiseToGetlinkedinkeyphrases = textanalyics(summary,summary,res);
-        promiseToGetlinkedinkeyphrases.then(function (linkedinphrases) {
-          linkedindetail = linkedinphrases[1];
-          res = linkedinphrases[2];
-          //console.log("response_2",res);
-          //console.log("linkedinphrase is", linkedinphrases[1]);
-          linkedinphrase = updatingphrases(linkedinphrases[0], 0);
-          console.log("Updated linkedinphrase is", linkedinphrase);
-        });
-      });
+      var linkedinprofileurl = "";
+      var resumefilename = "./Resumes/mahesh_1.docx";
+        let promiseToReadResumeContent = getContents(resumefilename);
+        promiseToReadResumeContent.then(function(resumePhrases){
+          linkedinprofileurl = getLinkedinProfileUrl(resumePhrases);
+          linkedin.people.url(linkedinprofileurl,['summary', 'positions'],function(err, profileDetails) {
+            console.log("Summary of the LinkedIn Profile is ",profileDetails.summary)
+            console.log("Specialties of the LinkedIn Profile is ",profileDetails.specialties)
+            console.log("Positions of the LinkedIn Profile is ",profileDetails.positions)
+            summary = profileDetails.summary;
+            
+            let promiseToGetlinkedinkeyphrases = textanalyics(summary,summary,res);
+            promiseToGetlinkedinkeyphrases.then(function (linkedinphrases) {
+              linkedindetail = linkedinphrases[1];
+              res = linkedinphrases[2];
+              //console.log("response_2",res);
+              //console.log("linkedinphrase is", linkedinphrases[1]);
+              linkedinphrase = updatingphrases(linkedinphrases[0], 0);
+              console.log(linkedinphrase);
+              var jdfilename = "./JD/Jdazure.docx";
+              let promiseToReadJDContent = getContents(jdfilename);
+              promiseToReadJDContent.then(function(jdPhrases){
+                console.log(jdPhrases);
+                let promiseToGetJobDesckeyphrases = textanalyics(jdPhrases,jdPhrases,res);
+                promiseToGetJobDesckeyphrases.then(function (jdescPhrase) {
+                  jdescdetail = jdescPhrase[1];
+                  res = jdescPhrase[2];
+                  console.log(jdescPhrase[0]);
+                });
+              });
+            });
+          });
+        }) 
     }); 
 });
 
@@ -319,6 +336,15 @@ console.log("total is",total);
 return total;
 }
 
+function getContents(resumeName) {
+  console.log("Inside get contents function")
+  return new Promise(function (resolve, reject) {
+    textract.fromFileWithPath(resumeName, function (error, text) {
+      //  console.log("file data",text);
+    resolve(text);          
+    })
+  });
+}
 function getIntents(resumekeyphrase) {
   console.log("Inside getIntents");
    var luisserverurl = "https://westus.api.cognitive.microsoft.com/luis/v2.0/apps/95eec808-1452-461b-b7d4-4a7a35ffaae1?subscription-key=c020b67f43b44573bb611d9ed30e2bd0&timezoneOffset=-360&q="+resumekeyphrase;
@@ -376,7 +402,6 @@ function updatingphrases(phrase, flag) {
 function textanalyics(text,resumedetail,res) {
   let body_;
   console.log("inside textanalytics");
-  console.log("Testing",text,"TEst")
   let documents = {
     'documents': [
       { "language": "en", 'id': '1', 'text': text },
@@ -572,6 +597,10 @@ function getFile(filename, foldername, localfolder) {
 }
 function getEmailsFromString(text) {
   return text.match(/([a-zA-Z0-9._+-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9._-]+)/gi);
+}
+
+function getLinkedinProfileUrl(text) {
+  return text.match(/(ftp|http|https):\/\/?((www|\w\w)\.)?linkedin.com(\w+:{0,1}\w*@)?(\S+)(:([0-9])+)?(\/|\/([\w#!:.?+=&%@!\-\/]))?/gi);
 }
 
 module.exports = router;
