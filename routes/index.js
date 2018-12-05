@@ -12,7 +12,7 @@ var url = require('url');
 var juice = require('juice');
 const sgMail = require('@sendgrid/mail');
 
-//var Linkedin = require('node-linkedin')('81yooy0fgqgwnd', 'cuDmW9pn0HM3dwCN', 'http://localhost:3000/callback');
+var Linkedin = require('node-linkedin')('818fja7bhtzeac', 'LN713Gcs61J623hZ', 'http://localhost:3000/linkedin');
 
 var express = require('express');
 var router = express.Router();
@@ -31,30 +31,36 @@ router.get('/callback', function(req, res, next) {
 
 });
 
-function getLinkedInDetails(req, res){
 
-  var luisserverurl = "https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=81yooy0fgqgwnd&redirect_uri=http://localhost:3000/callback&state=2522abcde12345";
-  var options4 = {
-    method: 'get',
-    url:luisserverurl,
-  }
+router.get('/linkedin1', function(req, res) {
+  var scope = ['r_basicprofile','rw_company_admin','w_share','r_emailaddress'];
+  Linkedin.auth.authorize(res, scope);
+});
+  
+router.get('/linkedin', function(req, res) {
+  Linkedin.auth.getAccessToken(res, req.query.code, req.query.state, function(err, results) {
+    if ( err )
+      return console.error(err);
+      var linkedin = Linkedin.init(results.access_token || results.accessToken);
+      var summary = "";
+      linkedin.people.url("https://www.linkedin.com/in/mchawda",['summary', 'positions'],function(err, profileDetails) {
+        console.log("Summary of the LinkedIn Profile is ",profileDetails.summary)
+        console.log("Specialties of the LinkedIn Profile is ",profileDetails.specialties)
+        console.log("Positions of the LinkedIn Profile is ",profileDetails.positions)
+        summary = profileDetails.summary;
 
-  //return new Promise(function (resolve, reject) {
-    request(options4, function (err, result, body) {
-      if(err)
-      {
-        console.log("error ",err);
-        //reject(err);
-
-      }
-     //let resultfromluis = JSON.parse(body);
-      console.log("linkedin profile ",body);
-     // resolve(body);
-    });
-  //});
- 
-
-}
+        let promiseToGetlinkedinkeyphrases = textanalyics(summary,summary,res);
+        promiseToGetlinkedinkeyphrases.then(function (linkedinphrases) {
+          linkedindetail = linkedinphrases[1];
+          res = linkedinphrases[2];
+          //console.log("response_2",res);
+          //console.log("linkedinphrase is", linkedinphrases[1]);
+          linkedinphrase = updatingphrases(linkedinphrases[0], 0);
+          console.log("Updated linkedinphrase is", linkedinphrase);
+        });
+      });
+    }); 
+});
 
 router.get('/tasks', function(req, res, next) {
   console.log("ResumeScreening AI")
@@ -370,6 +376,7 @@ function updatingphrases(phrase, flag) {
 function textanalyics(text,resumedetail,res) {
   let body_;
   console.log("inside textanalytics");
+  console.log("Testing",text,"TEst")
   let documents = {
     'documents': [
       { "language": "en", 'id': '1', 'text': text },
@@ -394,6 +401,7 @@ function textanalyics(text,resumedetail,res) {
       }
       else {
         body_ = JSON.parse(body);
+        console.log(body_);
         // let body__ = JSON.stringify (body_, null, '  ');
         let keyphrases = body_.documents[0].keyPhrases;
         let keyphrasesarray =[];
