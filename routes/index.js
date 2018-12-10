@@ -398,7 +398,7 @@ function textanalyticskeyphrase(text,resumedetail,res) {
   var options3 = {
     method: 'post',
     headers: {
-      'Ocp-Apim-Subscription-Key':'e208e04d79c74b84b4864c1b5382ed12', // this text-analytics api key is valid only for 7 days
+      'Ocp-Apim-Subscription-Key':'4794043b4b5c43ce891fa886a059efbd', // this text-analytics api key is valid only for 7 days
       // 'Content-Type':'application/json',
       // 'Accept':'application/json',
     },
@@ -442,7 +442,7 @@ function textanalyticssentiment(text,res) {
   var options3 = {
     method: 'post',
     headers: {
-      'Ocp-Apim-Subscription-Key':'e208e04d79c74b84b4864c1b5382ed12', // this text-analytics api key is valid only for 7 days
+      'Ocp-Apim-Subscription-Key':'4794043b4b5c43ce891fa886a059efbd', // this text-analytics api key is valid only for 7 days
       // 'Content-Type':'application/json',
       // 'Accept':'application/json',
     },
