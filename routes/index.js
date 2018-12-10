@@ -12,7 +12,8 @@ var url = require('url');
 var juice = require('juice');
 const sgMail = require('@sendgrid/mail');
 
-var Linkedin = require('node-linkedin')('818fja7bhtzeac', 'LN713Gcs61J623hZ', 'https://hrscreeningbot.azurewebsites.net/linkedin');
+//var Linkedin = require('node-linkedin')('818fja7bhtzeac', 'LN713Gcs61J623hZ', 'http://localhost:3000/linkedin');
+var Linkedin = require('node-linkedin')('818fja7bhtzeac', 'LN713Gcs61J623hZ','https://hrscreeningbot.azurewebsites.net/linkedin');
 
 var express = require('express');
 var router = express.Router();
@@ -91,7 +92,7 @@ router.get('/linkedin', function(req, res) {
                     JDdetail = JDcontent;
                       let promiseToGetJDkeyphrases = textanalyticskeyphrase(JDdetail,resumedetail,res);
                         promiseToGetJDkeyphrases.then(function (JDphrases) {
-                          resumedetail = JDphrases[1];
+                          resumedetail = resumecontent;
                           res = JDphrases[2];
                           JDphrase = updatingphrases(JDphrases[0], 1);
                           console.log("Updated JDphrase is", JDphrase);
