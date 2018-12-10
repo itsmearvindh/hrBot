@@ -20,6 +20,7 @@ var router = express.Router();
 
 var phrasecount = 10;
 var sendgridCredentials = [];
+var linkedin = "";
 
 //Muthuprasanth1012
 
@@ -32,7 +33,7 @@ router.get('/callback', function(req, res, next) {
 });
 
 
-router.get('/linkedin1', function(req, res) {
+router.get('/ScreenResumes', function(req, res) {
   var scope = ['r_basicprofile','rw_company_admin','w_share','r_emailaddress'];
   Linkedin.auth.authorize(res, scope);
 });
@@ -41,99 +42,86 @@ router.get('/linkedin', function(req, res) {
   Linkedin.auth.getAccessToken(res, req.query.code, req.query.state, function(err, results) {
     if ( err )
       return console.error(err);
-      var linkedin = Linkedin.init(results.access_token || results.accessToken);
-      var summary = "";
+
+      linkedin = Linkedin.init(results.access_token || results.accessToken);
+      var linkedinphrase = [];
       var linkedinprofileurl = "";
-      var resumefilename = "./Resumes/mahesh_1.docx";
-        let promiseToReadResumeContent = getContents(resumefilename);
-        promiseToReadResumeContent.then(function(resumePhrases){
-          linkedinprofileurl = getLinkedinProfileUrl(resumePhrases);
-          linkedin.people.url(linkedinprofileurl,['summary', 'positions'],function(err, profileDetails) {
-            console.log("Summary of the LinkedIn Profile is ",profileDetails.summary)
-            console.log("Specialties of the LinkedIn Profile is ",profileDetails.specialties)
-            console.log("Positions of the LinkedIn Profile is ",profileDetails.positions)
-            summary = profileDetails.summary;
-            
-            let promiseToGetlinkedinkeyphrases = textanalyics(summary,summary,res);
-            promiseToGetlinkedinkeyphrases.then(function (linkedinphrases) {
-              linkedindetail = linkedinphrases[1];
-              res = linkedinphrases[2];
-              //console.log("response_2",res);
-              //console.log("linkedinphrase is", linkedinphrases[1]);
-              linkedinphrase = updatingphrases(linkedinphrases[0], 0);
-              console.log(linkedinphrase);
-              var jdfilename = "./JD/Jdazure.docx";
-              let promiseToReadJDContent = getContents(jdfilename);
-              promiseToReadJDContent.then(function(jdPhrases){
-                console.log(jdPhrases);
-                let promiseToGetJobDesckeyphrases = textanalyics(jdPhrases,jdPhrases,res);
-                promiseToGetJobDesckeyphrases.then(function (jdescPhrase) {
-                  jdescdetail = jdescPhrase[1];
-                  res = jdescPhrase[2];
-                  console.log(jdescPhrase[0]);
+      var filename = "mahesh_1.docx";
+      var resumedetail = "";
+      var resumephrase = [];
+      var combinedcontent = "";
+      var summary = "";
+      let promiseTOGetsendgridCredentials = getSendgrid(res);
+      promiseTOGetsendgridCredentials.then(function (Credentials) {
+        sendgridCredentials[0] = Credentials[0];
+        sendgridCredentials[1] = Credentials[1];
+        res = Credentials[2];
+        
+        let promiseToReadResumeContent = getFile(filename, 'Shared%20Documents', 'Resumes');    
+        promiseToReadResumeContent.then(function(resumecontent){
+          let promiseToGetResumekeyphrases = textanalyticskeyphrase(resumecontent,resumecontent,res);
+          promiseToGetResumekeyphrases.then(function (ResumePhrases) {
+          resumephrase = updatingphrases(ResumePhrases[0], 0);
+          linkedinprofileurl = getLinkedinProfileUrl(resumecontent);
+          if(linkedinprofileurl) {
+            console.log("Linkedin profile url found: ",linkedinprofileurl);
+            let promiseToGetlinkedinsummary = getLinkedInSummary(linkedinprofileurl);
+            promiseToGetlinkedinsummary.then(function (linkedinsummary) {
+              summary = linkedinsummary;
+              console.log("Summary: ",summary);
+              let promiseToGetlinkedinkeyphrases = textanalyticskeyphrase(summary,summary,res);
+              promiseToGetlinkedinkeyphrases.then(function (linkedinphrases) {
+                linkedinphrase = linkedinphrases[0];
+                
+                var combinedphrase = Array.from(new Set(resumephrase.concat(linkedinphrase)));
+                console.log("Resume phrase is: ", resumephrase);
+                console.log("Linkedin phrase is: ", linkedinphrase);
+                console.log("Combined phrase is: ", combinedphrase);
+                
+                combinedcontent = resumecontent + summary;
+                console.log("Combined content: ",combinedcontent);
+                
+                let promiseToGetSentimentScore = textanalyticssentiment(combinedcontent,res);
+                promiseToGetSentimentScore.then(function (scoresArray) {
+                  console.log("The score: ",scoresArray);
+                  var JDdetail = "";
+                  var jdfilename = "Jdazure.docx";
+                  let promiseTOReadJDContent = getFile(jdfilename, 'Shared%20Documents', 'JD');
+                  promiseTOReadJDContent.then(function (JDcontent) {
+                    JDdetail = JDcontent;
+                      let promiseToGetJDkeyphrases = textanalyticskeyphrase(JDdetail,resumedetail,res);
+                        promiseToGetJDkeyphrases.then(function (JDphrases) {
+                          resumedetail = JDphrases[1];
+                          res = JDphrases[2];
+                          JDphrase = updatingphrases(JDphrases[0], 1);
+                          console.log("Updated JDphrase is", JDphrase);
+                          let promiseToGetJDintent  =  helper2(JDphrase,combinedphrase,phrasecount,resumedetail,res);
+                        }).catch(function (error) {
+                            console.log("Error in Getting JD phrase is", error.message);
+                        });
+                  }).catch(function (error) {
+                      console.log("Error in Getting JD content is", error.message);
+                  });
+                }).catch(function (error) {
+                  console.log("Error in Getting sentiment score is", error.message);
                 });
+              }).catch(function (error) {
+                console.log("Error in Getting linkedin phrase is", error.message);
               });
-            });
-          });
-        }) 
-    }); 
-});
-
-router.get('/tasks', function(req, res, next) {
-  console.log("ResumeScreening AI")
-  
-  //var filename = req.query.filename;
-  var filename = "mahesh_1.docx";
-  //var filename = "ramprasad_1.docx";
-  var jdfilename = "Jdazure.docx";
-  var resumedetail = "", JDdetail = "";
-  console.log("inside main function phrasecount is ", phrasecount);
-  let promiseTOGetsendgridCredentials = getSendgrid(res);
-  promiseTOGetsendgridCredentials.then(function (Credentials) {
-    sendgridCredentials[0] = Credentials[0];
-    sendgridCredentials[1] = Credentials[1];
-    res = Credentials[2];
-    //console.log("sendgridCredentials is", sendgridCredentials);
-    let promiseTOReadResumeContent = getFile(filename, 'Shared%20Documents', 'Resumes');
-    promiseTOReadResumeContent.then(function (resumecontent) {
-      resumedetail = resumecontent;
-      console.log("resumedetail is", resumedetail);
-      let promiseTOReadJDContent = getFile(jdfilename, 'Shared%20Documents', 'JD');
-      promiseTOReadJDContent.then(function (JDcontent) {
-        JDdetail = JDcontent;
-        console.log("JDdetail is", JDdetail);
-        let promiseToGetResumekeyphrases = textanalyics(resumedetail,resumedetail,res);
-        promiseToGetResumekeyphrases.then(function (resumephrases) {
-          resumedetail = resumephrases[1];
-          res = resumephrases[2];
-          //console.log("response_2",res);
-          //console.log("resumephrase is", resumephrases[1]);
-          resumephrase = updatingphrases(resumephrases[0], 0);
-          console.log("Updated resumephrase is", resumephrase);
-          let promiseToGetJDkeyphrases = textanalyics(JDdetail,resumedetail,res);
-          promiseToGetJDkeyphrases.then(function (JDphrases) {
-            resumedetail = JDphrases[1];
-            res = JDphrases[2];
-            JDphrase = updatingphrases(JDphrases[0], 1);
-            console.log("Updated resumephrase is", JDphrase);
-
-            let promiseToGetJDintent  =  helper2(JDphrase,resumephrase,phrasecount,resumedetail,res);
-
-          }).catch(function (error) {
-            console.log("Error in Getting JD Keyphrases is", error.message);
-          });
+            }).catch(function (error) {
+              console.log("Error in Getting summary is", error.message);
+            });              
+          }          
         }).catch(function (error) {
-          console.log("Error in Getting Resume Keyphrases is", error.message);
+          console.log("Error in Getting resume phrase is", error.message);
         });
       }).catch(function (error) {
-        console.log("Error in Getting JD content is", error.message);
+          console.log("Error in Getting resume content is", error.message);
       });
     }).catch(function (error) {
-      console.log("Error in Getting resume content is", error.message);
+        console.log("Error in Getting sendgridCredentials is", error.message);
     });
-  }).catch(function (error) {
-    console.log("Error in Getting sendgridCredentials is", error.message);
-  });
+  }); 
 });
 
 function getSendgrid(res) {
@@ -201,7 +189,7 @@ function resolveAfter1Seconds() {
   });
 }
 
-async function helper2(JDphrase,resumephrase,phrasecount,resumedetail,res)
+async function helper2(JDphrase,combinedphrase,phrasecount,resumedetail,res)
 {
   console.log("Inside helper2");
 let resumecontent="";
@@ -226,7 +214,7 @@ let resumecontent="";
   for(let b=0;b<phrasecount;b++)
   {
   
-    resumeintentarray[b] =  await getIntents(resumephrase[b]);
+    resumeintentarray[b] =  await getIntents(combinedphrase[b]);
       console.log("REsume");
       if((b+1)%5==0)
       {
@@ -236,7 +224,7 @@ let resumecontent="";
    
   }
   console.log("after SECOND for loop",resumeintentarray);
-  let total = phraseCompariosion(JDintentarray,resumeintentarray);
+  let total = phraseComparison(JDintentarray,resumeintentarray);
   if(total >= 5)
   {
     let email = getEmailsFromString(resumecontent);
@@ -299,7 +287,7 @@ function sendMail(emails,response)
   });
 }
 
-function phraseCompariosion(JDintentarray,resumeintentarray)
+function phraseComparison(JDintentarray,resumeintentarray)
 {
   var JDintentsuniquecounts = {};
   var resumeintentsuniquecounts = {};
@@ -336,15 +324,15 @@ console.log("total is",total);
 return total;
 }
 
-function getContents(resumeName) {
-  console.log("Inside get contents function")
+function getLinkedInSummary(lprofileurl) {
   return new Promise(function (resolve, reject) {
-    textract.fromFileWithPath(resumeName, function (error, text) {
-      //  console.log("file data",text);
-    resolve(text);          
-    })
-  });
+    linkedin.people.url(lprofileurl,['summary'],function(err, profileDetails) {
+      let lsummary = profileDetails.summary;
+      resolve(lsummary)
+    });
+  })
 }
+
 function getIntents(resumekeyphrase) {
   console.log("Inside getIntents");
    var luisserverurl = "https://westus.api.cognitive.microsoft.com/luis/v2.0/apps/95eec808-1452-461b-b7d4-4a7a35ffaae1?subscription-key=c020b67f43b44573bb611d9ed30e2bd0&timezoneOffset=-360&q="+resumekeyphrase;
@@ -399,9 +387,9 @@ function updatingphrases(phrase, flag) {
   return phrase;
 }
 
-function textanalyics(text,resumedetail,res) {
+function textanalyticskeyphrase(text,resumedetail,res) {
   let body_;
-  console.log("inside textanalytics");
+  console.log("inside textanalytics keyphrases");
   let documents = {
     'documents': [
       { "language": "en", 'id': '1', 'text': text },
@@ -437,6 +425,47 @@ function textanalyics(text,resumedetail,res) {
         // console.log ("output is",body_.documents[0].keyPhrases[146]);  
   
         resolve(keyphrasesarray);
+      }
+    });
+  });
+
+}
+
+function textanalyticssentiment(text,res) {
+  let body_;
+  console.log("inside textanalytics sentiment analysis");
+  let documents = {
+    'documents': [
+      { "language": "en", 'id': '1', 'text': text },
+    ]
+  };
+  var options3 = {
+    method: 'post',
+    headers: {
+      'Ocp-Apim-Subscription-Key':'e208e04d79c74b84b4864c1b5382ed12', // this text-analytics api key is valid only for 7 days
+      // 'Content-Type':'application/json',
+      // 'Accept':'application/json',
+    },
+    body: JSON.stringify(documents),
+    // body: documents,
+    url: 'https://westcentralus.api.cognitive.microsoft.com/text/analytics/v2.0/sentiment',
+  }
+  return new Promise(function (resolve, reject) {
+    request(options3, function (err, result, body) {
+      if (err) {
+        console.log("error is ", err);
+        
+      }
+      else {
+        body_ = JSON.parse(body);
+        console.log(body_);
+        // let body__ = JSON.stringify (body_, null, '  ');
+        let scores = body_.documents[0].score;
+        
+        // console.log ("output type is", typeof keyphrases,Object.keys(keyphrases).length);  
+        // console.log ("output is",body_.documents[0].keyPhrases[146]);  
+  
+        resolve(scores);
       }
     });
   });
@@ -547,7 +576,7 @@ function getFile(filename, foldername, localfolder) {
                   }
                   else if (!item) {
                     //console.log("pdf content is ",pdftext);
-                    // textanalyics(pdftext);
+                    // textanalyticskeyphrase(pdftext);
                     // console.log("else ssssss is",err);
                     //console.log("pdf content is ",pdftext);
                     resolve(pdftext);
@@ -600,7 +629,7 @@ function getEmailsFromString(text) {
 }
 
 function getLinkedinProfileUrl(text) {
-  return text.match(/(ftp|http|https):\/\/?((www|\w\w)\.)?linkedin.com(\w+:{0,1}\w*@)?(\S+)(:([0-9])+)?(\/|\/([\w#!:.?+=&%@!\-\/]))?/gi);
+  return text.match(/(ftp|http|https):\/\/?((www|\w\w)\.)?linkedin.com(\w+:{0,1}\w*@)?(\S+)(:([0-9])+)?(\/|\/([\w#!:.?+=&%@!\-\/]))?/gi) || "";
 }
 
 module.exports = router;
