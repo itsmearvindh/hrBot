@@ -17,6 +17,7 @@ var Linkedin = require('node-linkedin')('818fja7bhtzeac', 'LN713Gcs61J623hZ','ht
 
 var express = require('express');
 var router = express.Router();
+var filename = "";
 
 
 var phrasecount = 10;
@@ -35,7 +36,9 @@ router.get('/callback', function(req, res, next) {
 
 
 router.get('/ScreenResumes', function(req, res) {
+  filename = req.query.filename;
   var scope = ['r_basicprofile','rw_company_admin','w_share','r_emailaddress'];
+  console.log(res);
   Linkedin.auth.authorize(res, scope);
 });
   
@@ -52,6 +55,7 @@ router.get('/linkedin', function(req, res) {
       var resumephrase = [];
       var combinedcontent = "";
       var summary = "";
+      console.log(filename);
       let promiseTOGetsendgridCredentials = getSendgrid(res);
       promiseTOGetsendgridCredentials.then(function (Credentials) {
         sendgridCredentials[0] = Credentials[0];
