@@ -12,11 +12,12 @@ var url = require('url');
 var juice = require('juice');
 const sgMail = require('@sendgrid/mail');
 
-//var Linkedin = require('node-linkedin')('818fja7bhtzeac', 'LN713Gcs61J623hZ', 'http://localhost:3000/linkedin');
-var Linkedin = require('node-linkedin')('818fja7bhtzeac', 'LN713Gcs61J623hZ','https://hrscreeningbot.azurewebsites.net/linkedin');
+var Linkedin = require('node-linkedin')('818fja7bhtzeac', 'LN713Gcs61J623hZ', 'http://localhost:3000/linkedin');
+//var Linkedin = require('node-linkedin')('818fja7bhtzeac', 'LN713Gcs61J623hZ','https://hrscreeningbot.azurewebsites.net/linkedin');
 
 var express = require('express');
 var router = express.Router();
+var filenameArray = [];
 
 
 var phrasecount = 10;
@@ -33,20 +34,12 @@ router.get('/callback', function(req, res, next) {
 
 });
 
-router.get('/TextAnalytics',function(req,res){
-  let egText = "Ten years of experience. Associate Consultant with a demonstrated history of working in the information technology and services industry. Skilled in Java, Angular, Node.js, PHP, HTML5 ,CSS3 and Strong consulting professional with a Information Technology focused in Information Technology from Kongu Engineering College.";
-  let promiseToGetText = textanalytics(egText,egText,res);
-  promiseToGetText.then(function (exText) {
-    console.log(exText);
-  })
-})
-
 
 router.get('/ScreenResumes', function(req, res) {
-  var resumeName = req.query.filename;
-  var stateParam = resumeName+"state"+Date.now();
+  filename = req.query.filename;
+  filenameArray.push({file:filename,id:Date.now()});
   var scope = ['r_basicprofile','rw_company_admin','w_share','r_emailaddress'];
-  Linkedin.auth.authorize(res, scope,stateParam);
+  Linkedin.auth.authorize(res, scope);
 });
   
 router.get('/linkedin', function(req, res) {
@@ -55,10 +48,14 @@ router.get('/linkedin', function(req, res) {
       return console.error(err);
 
       linkedin = Linkedin.init(results.access_token || results.accessToken);
-      
-      var resumename = (req.query.state).split("state");
-      var filename = resumename[0];
-      console.log(filename, " is the filename");
+      var linkedinphrase = [];
+      var linkedinprofileurl = "";
+      var filename = "mahesh_1.docx";
+      var resumedetail = "";
+      var resumephrase = [];
+      var combinedcontent = "";
+      var summary = "";
+      console.log(filenameArray);
       let promiseTOGetsendgridCredentials = getSendgrid(res);
       promiseTOGetsendgridCredentials.then(function (Credentials) {
         sendgridCredentials[0] = Credentials[0];
@@ -67,35 +64,43 @@ router.get('/linkedin', function(req, res) {
         
         let promiseToReadResumeContent = getFile(filename, 'Shared%20Documents', 'Resumes');    
         promiseToReadResumeContent.then(function(resumecontent){
-          
+          let promiseToGetResumekeyphrases = textanalyticskeyphrase(resumecontent,resumecontent,res);
+          promiseToGetResumekeyphrases.then(function (ResumePhrases) {
+          resumephrase = updatingphrases(ResumePhrases[0], 0);
           linkedinprofileurl = getLinkedinProfileUrl(resumecontent);
           if(linkedinprofileurl) {
             console.log("Linkedin profile url found: ",linkedinprofileurl);
             let promiseToGetlinkedinsummary = getLinkedInSummary(linkedinprofileurl);
             promiseToGetlinkedinsummary.then(function (linkedinsummary) {
-              var summary = linkedinsummary;
+              summary = linkedinsummary;
               console.log("Summary: ",summary);
-              
+              let promiseToGetlinkedinkeyphrases = textanalyticskeyphrase(summary,summary,res);
+              promiseToGetlinkedinkeyphrases.then(function (linkedinphrases) {
+                linkedinphrase = linkedinphrases[0];
                 
-                var combinedcontent = resumecontent + summary;
+                var combinedphrase = Array.from(new Set(resumephrase.concat(linkedinphrase)));
+                console.log("Resume phrase is: ", resumephrase);
+                console.log("Linkedin phrase is: ", linkedinphrase);
+                console.log("Combined phrase is: ", combinedphrase);
+                
+                combinedcontent = resumecontent + summary;
                 console.log("Combined content: ",combinedcontent);
                 
-                let promiseToGetCombinedkeyphrases = textanalyticskeyphrase(combinedcontent,combinedcontent,res);
-                promiseToGetCombinedkeyphrases.then(function (CombinedPhrases) {
-                var combinedphrase = updatingphrases(CombinedPhrases[0], 0);
                 let promiseToGetSentimentScore = textanalyticssentiment(combinedcontent,res);
                 promiseToGetSentimentScore.then(function (scoresArray) {
-                  console.log("The sentiment score for candidate profile is ",scoresArray);
+                  console.log("The score: ",scoresArray);
+                  var JDdetail = "";
                   var jdfilename = "Jdazure.docx";
                   let promiseTOReadJDContent = getFile(jdfilename, 'Shared%20Documents', 'JD');
                   promiseTOReadJDContent.then(function (JDcontent) {
-                    let promiseToGetJDkeyphrases = textanalyticskeyphrase(JDcontent,JDcontent,res);
+                    JDdetail = JDcontent;
+                      let promiseToGetJDkeyphrases = textanalyticskeyphrase(JDdetail,resumedetail,res);
                         promiseToGetJDkeyphrases.then(function (JDphrases) {
-                          var candEmail = getEmailsFromString(resumecontent);
+                          resumedetail = resumecontent;
                           res = JDphrases[2];
                           JDphrase = updatingphrases(JDphrases[0], 1);
                           console.log("Updated JDphrase is", JDphrase);
-                          let promiseToGetJDintent  =  helper2(JDphrase,combinedphrase,phrasecount,candEmail,res);
+                          let promiseToGetJDintent  =  helper2(JDphrase,combinedphrase,phrasecount,resumedetail,res);
                         }).catch(function (error) {
                             console.log("Error in Getting JD phrase is", error.message);
                         });
@@ -106,12 +111,15 @@ router.get('/linkedin', function(req, res) {
                   console.log("Error in Getting sentiment score is", error.message);
                 });
               }).catch(function (error) {
-                console.log("Error in Getting combined phrase is", error.message);
+                console.log("Error in Getting linkedin phrase is", error.message);
               });
             }).catch(function (error) {
               console.log("Error in Getting summary is", error.message);
             });              
-          } 
+          }          
+        }).catch(function (error) {
+          console.log("Error in Getting resume phrase is", error.message);
+        });
       }).catch(function (error) {
           console.log("Error in Getting resume content is", error.message);
       });
@@ -186,10 +194,10 @@ function resolveAfter1Seconds() {
   });
 }
 
-async function helper2(JDphrase,combinedphrase,phrasecount,appEmail,res)
+async function helper2(JDphrase,combinedphrase,phrasecount,resumedetail,res)
 {
   console.log("Inside helper2");
-
+let resumecontent="";
 
  let JDintentarray=[],resumeintentarray=[]; 
   for(let a=0;a<phrasecount;a++)
@@ -206,6 +214,7 @@ async function helper2(JDphrase,combinedphrase,phrasecount,appEmail,res)
     
   }
   console.log("after FIRST for loop",JDintentarray);
+  resumecontent = resumedetail;
   let response = res;
   for(let b=0;b<phrasecount;b++)
   {
@@ -223,7 +232,9 @@ async function helper2(JDphrase,combinedphrase,phrasecount,appEmail,res)
   let total = phraseComparison(JDintentarray,resumeintentarray);
   if(total >= 5)
   {
-    sendMail(appEmail,response);
+    let email = getEmailsFromString(resumecontent);
+    console.log("email",email,typeof email);
+    sendMail(email,response);
   }
   else{
     console.log("Candidate score is "+total+" and rejected");
@@ -392,7 +403,7 @@ function textanalyticskeyphrase(text,resumedetail,res) {
   var options3 = {
     method: 'post',
     headers: {
-      'Ocp-Apim-Subscription-Key':'8c338e379c8b4c30aa25436202239a87', // this text-analytics api key is valid only for 7 days
+      'Ocp-Apim-Subscription-Key':'4794043b4b5c43ce891fa886a059efbd', // this text-analytics api key is valid only for 7 days
       // 'Content-Type':'application/json',
       // 'Accept':'application/json',
     },
@@ -436,7 +447,7 @@ function textanalyticssentiment(text,res) {
   var options3 = {
     method: 'post',
     headers: {
-      'Ocp-Apim-Subscription-Key':'8c338e379c8b4c30aa25436202239a87', // this text-analytics api key is valid only for 7 days
+      'Ocp-Apim-Subscription-Key':'4794043b4b5c43ce891fa886a059efbd', // this text-analytics api key is valid only for 7 days
       // 'Content-Type':'application/json',
       // 'Accept':'application/json',
     },
@@ -454,7 +465,7 @@ function textanalyticssentiment(text,res) {
         body_ = JSON.parse(body);
         console.log(body_);
         // let body__ = JSON.stringify (body_, null, '  ');
-        let scores = body_.documents[0];
+        let scores = body_.documents[0].score;
         
         // console.log ("output type is", typeof keyphrases,Object.keys(keyphrases).length);  
         // console.log ("output is",body_.documents[0].keyPhrases[146]);  
