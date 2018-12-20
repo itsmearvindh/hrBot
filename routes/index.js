@@ -7,10 +7,12 @@ var sppull = require("sppull").sppull;
 var Connection = require('tedious').Connection;
 var Request = require('tedious').Request;
 var https = require ('https');
-
 var url = require('url');
 var juice = require('juice');
 const sgMail = require('@sendgrid/mail');
+var mammoth = require('mammoth');
+var PdfReader = require('pdfreader');
+
 
 //var Linkedin = require('node-linkedin')('818fja7bhtzeac', 'LN713Gcs61J623hZ', 'http://localhost:3000/linkedin');
 var Linkedin = require('node-linkedin')('818fja7bhtzeac', 'LN713Gcs61J623hZ','https://hrscreeningbot.azurewebsites.net/linkedin');
@@ -44,6 +46,7 @@ router.get('/TextAnalytics',function(req,res){
 
 router.get('/ScreenResumes', function(req, res) {
   var resumeName = req.query.filename;
+  console.log(resumeName);
   var stateParam = resumeName+"state"+Date.now();
   var scope = ['r_basicprofile','rw_company_admin','w_share','r_emailaddress'];
   Linkedin.auth.authorize(res, scope,stateParam);
@@ -111,6 +114,15 @@ router.get('/linkedin', function(req, res) {
             }).catch(function (error) {
               console.log("Error in Getting summary is", error.message);
             });              
+          }
+          else {
+            var promiseToGetProfileURLFromLogo = mammoth.convertToHtml({path: "./Resumes/"+filename})
+            promiseToGetProfileURLFromLogo.then(function(result){
+              var html = result.value; // The generated HTML
+              var messages = result.messages; // Any messages, such as warnings during conversion
+              console.log(messages);
+              console.log(result);
+            })
           } 
       }).catch(function (error) {
           console.log("Error in Getting resume content is", error.message);
