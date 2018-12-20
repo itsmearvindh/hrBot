@@ -49,7 +49,9 @@ router.get('/ScreenResumes', function(req, res) {
   console.log(resumeName);
   var stateParam = resumeName+"state"+Date.now();
   var scope = ['r_basicprofile','rw_company_admin','w_share','r_emailaddress'];
+  console.log(stateParam)
   Linkedin.auth.authorize(res, scope,stateParam);
+  console.log("linkedin")
 });
   
 router.get('/linkedin', function(req, res) {
