@@ -52,8 +52,24 @@ var config =
 //  });
  
  router.get('/test', function(req, res) {
-    res.header("Access-Control-Allow-Origin", "*");
-    res.status(200).send("success");
+  var scope = ['r_basicprofile','rw_company_admin','w_share','r_emailaddress'];
+  Linkedin.auth.authorize(res, scope);
+    // res.header("Access-Control-Allow-Origin", "*");
+    // res.status(200).send("success");
+  });
+
+  router.get('/linkedin', function(req, res) {
+    Linkedin.auth.getAccessToken(res, req.query.code, req.query.state, function(err, results) {
+      if ( err )
+        return console.error(err);
+  
+        linkedin = Linkedin.init(results.access_token || results.accessToken);
+        linkedin.people.url("https://www.linkedin.com/in/authayasuriyan",['summary'],function(err, profileDetails) {
+          let lsummary = profileDetails.summary;
+          res.header("Access-Control-Allow-Origin", "*");
+          res.status(200).send(lsummary);
+    });
+    });
   });
 
 // function setTokeninDB(accesstoken){
