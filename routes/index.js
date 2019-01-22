@@ -12,8 +12,8 @@ var url = require('url');
 var juice = require('juice');
 const sgMail = require('@sendgrid/mail');
 
-//var Linkedin = require('node-linkedin')('81yooy0fgqgwnd', 'cuDmW9pn0HM3dwCN', 'https://resumescreeningai.azurewebsites.net/callback');
-var Linkedin = require('node-linkedin')('81yooy0fgqgwnd', 'cuDmW9pn0HM3dwCN', 'http://localhost:3000/callback');//
+var Linkedin = require('node-linkedin')('81yooy0fgqgwnd', 'cuDmW9pn0HM3dwCN', 'https://resumechecker.azurewebsites.net/linkedin');
+//var Linkedin = require('node-linkedin')('81yooy0fgqgwnd', 'cuDmW9pn0HM3dwCN', 'http://localhost:3000/callback');//
 //var Linkedin = require('node-linkedin')('81wfo9abdlsl6r', 'vrc0zfNZ7GZSVMvV', 'http://localhost:3000/callback');
 var express = require('express');
 var router = express.Router();
